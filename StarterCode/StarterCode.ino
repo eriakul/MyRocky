@@ -78,8 +78,8 @@ void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, flo
   int Jp = 500;
   int Jr = 5000;
   int Kp = -6;
-  int Ki = -39;
-  float Kd = 0.05;
+  int Ki = -36;
+  float Kd = 0.1;
   float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
   float v = (vL + vR) / 2;
   
@@ -263,7 +263,7 @@ void loop()
     totalDistanceLeft = METERS_PER_CLICK*distanceLeft;
     totalDistanceRight = METERS_PER_CLICK*distanceRight;
     angle_rad_accum += (angle_rad)*delta_t;
-    float Kd = 0.05;
+    float Kd = 0.1;
     float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
     float Etheta = Kd*dist - angle_rad;
     Itheta += Etheta*delta_t;
