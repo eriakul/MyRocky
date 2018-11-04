@@ -78,10 +78,12 @@ void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, flo
   int Jp = 500;
   int Jr = 5000;
   int Kp = -6;
-  int Ki = -36;
-  float Kd = 0.5;
+  int Ki = -39;
+  float Kd = 0.05;
   float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
-  float Etheta = Kd*dist - angleRad;
+  float v = (vL + vR) / 2;
+  
+  float Etheta = Kd*(dist) - angleRad;
   //int Itheta = thetad - angleRadAccum;
   //float radoffset = 2*0.0349066;
   float Evl = ((Kp * (Etheta) + Ki * (Itheta) - vL));
@@ -92,17 +94,18 @@ void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, flo
   //int pwm = kp*angleRad + ki*angleRadAccum;
   int rightPWM = Jp*Evr + Jr * Itheta;
 
-  //if (rightPWM > 0) 
- //   rightPWM = max(rightPWM, 30);
- // else 
- //   rightPWM = min(rightPWM, -30);
+  int max_speed = 300;
+  if (rightPWM > 0)
+    rightPWM = min(rightPWM, max_speed);
+  else
+    rightPWM = max(rightPWM, -max_speed);
 
  int leftPWM = Jp*Evl + Jr * Itheta;
 
- // if (leftPWM > 0)
-//    leftPWM = max(leftPWM, 30);
- // else
- //   leftPWM = min(leftPWM, -30);
+  if (leftPWM > 0)
+    leftPWM = min(leftPWM, max_speed);
+  else
+    leftPWM = max(leftPWM, -max_speed);
     
   
   leftMotorPWM = leftPWM;//min(125, pwm);
@@ -260,7 +263,7 @@ void loop()
     totalDistanceLeft = METERS_PER_CLICK*distanceLeft;
     totalDistanceRight = METERS_PER_CLICK*distanceRight;
     angle_rad_accum += (angle_rad)*delta_t;
-    float Kd = 0.5;
+    float Kd = 0.05;
     float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
     float Etheta = Kd*dist - angle_rad;
     Itheta += Etheta*delta_t;
