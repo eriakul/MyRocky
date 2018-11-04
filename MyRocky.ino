@@ -38,6 +38,8 @@
 #define MAX_SPEED 0.75  // m/s
 #define FORTY_FIVE_DEGREES_IN_RADIANS 0.78
 
+float armed_degrees = 2;
+
 extern int32_t angle_accum;
 extern int32_t speedLeft;
 extern int32_t driveLeft;
@@ -54,6 +56,7 @@ void balanceDoDriveTicks();
 
 extern int32_t displacement;
 int32_t prev_displacement=0;
+int32_t start_time;
 
 LSM6 imu;
 Balboa32U4Motors motors;
@@ -70,13 +73,39 @@ void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, flo
    *    angleRad: the angle in radians relative to vertical (note: not the same as error)
    *    angleRadAccum: the angle integrated over time (note: not the same as error)
    */
-  int kp = 1000;
-  int ki = 500;
+  //int factor = 50;
+  // 4 27
+  int Jp = 2000;
+  int Jr = 5000;
+  int Kp = 6;
+  int Ki = 36;
+  int thetad = -(totalDistanceLeft + totalDistanceRight) / 2;
+  //int Etheta = thetad - angleRad;
+  //int Itheta = thetad - angleRadAccum;
+  float radoffset = 2*0.0349066;
+  int Evl = ((Kp * (angleRad) + Ki * (angleRadAccum) - vL)) + thetad;
+  int Evr = ((Kp * (angleRad) + Ki * (angleRadAccum) - vR)) + thetad; 
+  //int kp = 6 * factor;
+  //int ki = 36 * factor;
 
-  int pwm = kp*angleRad + ki*angleRadAccum;
+  //int pwm = kp*angleRad + ki*angleRadAccum;
+  int rightPWM = Jp*Evr; //+ Jr * thetad;
+
+  //if (rightPWM > 0) 
+ //   rightPWM = max(rightPWM, 30);
+ // else 
+ //   rightPWM = min(rightPWM, -30);
+
+ int leftPWM = Jp*Evl; //+ Jr * thetad;
+
+ // if (leftPWM > 0)
+//    leftPWM = max(leftPWM, 30);
+ // else
+ //   leftPWM = min(leftPWM, -30);
+    
   
-  leftMotorPWM = pwm;
-  rightMotorPWM = pwm;
+  leftMotorPWM = leftPWM;//min(125, pwm);
+  rightMotorPWM = rightPWM;//min(125, pwm);
 }
 
 uint32_t prev_time;
@@ -87,6 +116,7 @@ void setup()
   ledYellow(0);
   ledRed(1);
   balanceSetup();
+  buzzer.playFrequency(3000, 500, 12);// signal setup finish for .5 sec
   ledRed(0);
   angle_accum = 0;
   ledGreen(0);
@@ -141,7 +171,7 @@ void loop()
 
   newBalanceUpdate();                    // run the sensor updates. this function checks if it has been 10 ms since the previous 
   
-  if(angle > 3000 || angle < -3000)      // If angle is not within +- 3 degrees, reset counter that waits for start
+  if(angle > armed_degrees * 1000 || angle < armed_degrees * -1000)      // If angle is not within +- 3 degrees, reset counter that waits for start
   {
     start_counter = 0;
   }
@@ -189,7 +219,7 @@ void loop()
   }
   
   // every UPDATE_TIME_MS, check if angle is within +- 3 degrees and we haven't set the start flag yet
-  if(cur_time - prev_time > UPDATE_TIME_MS && angle > -3000 && angle < 3000 && !armed_flag)   
+  if(cur_time - prev_time > UPDATE_TIME_MS && angle > armed_degrees * -1000 && angle < armed_degrees * 1000 && !armed_flag)   
   {
     // increment the start counter
     start_counter++;
@@ -206,11 +236,12 @@ void loop()
 
   // only start when the angle falls outside of the 3.0 degree band around 0.  This allows you to let go of the
   // robot before it starts balancing
-  if(cur_time - prev_time > UPDATE_TIME_MS && (angle < -3000 || angle > 3000) && armed_flag)   
+  if(cur_time - prev_time > UPDATE_TIME_MS && (angle < armed_degrees * -1000 || angle > armed_degrees * 1000) && armed_flag)   
   {
     start_flag = 1;
     armed_flag = 0;
     angle_rad_accum = 0.0;
+    start_time = millis();
   }
 
   // every UPDATE_TIME_MS, if the start_flag has been set, do the balancing
@@ -237,6 +268,7 @@ void loop()
       start_flag = 0;   /// wait for restart
       prev_time = 0;
       motors.setSpeeds(0, 0);
+      buzzer.playFrequency(500, 500, 12);
     } else if(start_flag) {
       motors.setSpeeds((int)leftMotorPWM, (int)rightMotorPWM);
     }
