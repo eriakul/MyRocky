@@ -47,6 +47,8 @@ extern int32_t distanceRight;
 extern int32_t speedRight;
 extern int32_t distanceLeft;
 extern int32_t distanceRight;
+float imu_ax_average = 0.0;
+float alpha_imu_ax = 0.1;
 
 float vL, vR, totalDistanceLeft, totalDistanceRight;
 float leftMotorPWM = 0;
@@ -64,7 +66,7 @@ Balboa32U4Encoders encoders;
 Balboa32U4Buzzer buzzer;
 Balboa32U4ButtonA buttonA;
 
-void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, float vR, float angleRad, float angleRadAccum) {
+void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, float vR, float angleRad, float angleRadAccum, float Itheta) {
   /* You will fill this function in with your code to run the race.  The inputs to the function are:
    *    totalDistanceLeft: the total distance travelled by the left wheel (meters) as computed by the encoders
    *    totalDistanceRight: the total distance travelled by the right wheel (meters) as computed by the encoders
@@ -75,28 +77,25 @@ void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, flo
    */
   //int factor = 50;
   // 4 27
-  int Jp = 2000;
+  int Jp = 500;
   int Jr = 5000;
-  int Kp = 6;
-  int Ki = 36;
-  int thetad = -(totalDistanceLeft + totalDistanceRight) / 2;
-  //int Etheta = thetad - angleRad;
-  //int Itheta = thetad - angleRadAccum;
-  float radoffset = 2*0.0349066;
-  int Evl = ((Kp * (angleRad) + Ki * (angleRadAccum) - vL)) + thetad;
-  int Evr = ((Kp * (angleRad) + Ki * (angleRadAccum) - vR)) + thetad; 
-  //int kp = 6 * factor;
-  //int ki = 36 * factor;
+  int Kp = -5;
+  int Ki = -40;
+  float Kd = 0.5;
+  float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
+  float Etheta = .003 - angleRad;   //Kd*dist - angleRad;
+  float Evl = ((Kp * (Etheta) + Ki * (Itheta) - vL));
+  float Evr = ((Kp * (Etheta) + Ki * (Itheta) - vR)); 
 
   //int pwm = kp*angleRad + ki*angleRadAccum;
-  int rightPWM = Jp*Evr; //+ Jr * thetad;
+  int rightPWM = Jp*Evr + Jr * Itheta;
 
   //if (rightPWM > 0) 
  //   rightPWM = max(rightPWM, 30);
  // else 
  //   rightPWM = min(rightPWM, -30);
 
- int leftPWM = Jp*Evl; //+ Jr * thetad;
+ int leftPWM = Jp*Evl + Jr * Itheta;
 
  // if (leftPWM > 0)
 //    leftPWM = max(leftPWM, 30);
@@ -142,8 +141,8 @@ void newBalanceUpdate()
 
   // call functions to integrate encoders and gyros
   balanceUpdateSensors();
- 
-  if (imu.a.x < 0)
+  imu_ax_average = alpha_imu_ax*imu.a.x + (1 - alpha_imu_ax)*imu_ax_average;
+  if (imu_ax_average < 0)
   {
     lyingDown();
     isBalancingStatus = false;
@@ -155,12 +154,14 @@ void newBalanceUpdate()
 }
 
 
+
 void loop()
 {
   uint32_t cur_time = 0;
   static uint32_t prev_print_time = 0;   // this variable is to control how often we print on the serial monitor
   static float angle_rad;                // this is the angle in radians
   static float angle_rad_accum = 0;      // this is the accumulated angle in radians
+  static float Itheta = 0;
   static float error_ = 0;      // this is the accumulated velocity error in m/s
   static float error_left_accum = 0;      // this is the accumulated velocity error in m/s
   static float error_right_accum = 0;      // this is the accumulated velocity error in m/s
@@ -180,19 +181,19 @@ void loop()
   if(shouldPrint)   // do the printing every 105 ms. Don't want to do it for an integer multiple of 10ms to not hog the processor
   {
         Serial.print(angle_rad);  
-        Serial.print("\t");
+        Serial.print("\tAnAc: ");
         Serial.print(angle_rad_accum);  
-        Serial.print("\t");
+        Serial.print("\t LM: ");
         Serial.print(leftMotorPWM);
-        Serial.print("\t");
+        Serial.print("\t RM: ");
         Serial.print(rightMotorPWM);
-        Serial.print("\t");
+        Serial.print("\t VL: ");
         Serial.print(vL);
-        Serial.print("\t");
+        Serial.print("\t VR: ");
         Serial.print(vR);
-        Serial.print("\t");
+        Serial.print("\t DL:");
         Serial.print(totalDistanceLeft);
-        Serial.print("\t");
+        Serial.print("\t DR: ");
         Serial.println(totalDistanceRight);
 
         prev_print_time = cur_time;
@@ -257,9 +258,12 @@ void loop()
 
     totalDistanceLeft = METERS_PER_CLICK*distanceLeft;
     totalDistanceRight = METERS_PER_CLICK*distanceRight;
-    angle_rad_accum += angle_rad*delta_t;
-
-    updatePWMs(totalDistanceLeft, totalDistanceRight, vL, vR, angle_rad, angle_rad_accum);
+    angle_rad_accum += (angle_rad)*delta_t;
+    float Kd = 0.5;
+    float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
+    float Etheta = .003 - angle_rad;
+    Itheta += Etheta*delta_t;
+    updatePWMs(totalDistanceLeft, totalDistanceRight, vL, vR, angle_rad, angle_rad_accum, Itheta);
 
     // if the robot is more than 45 degrees, shut down the motor
     if(start_flag && fabs(angle_rad) > FORTY_FIVE_DEGREES_IN_RADIANS)
