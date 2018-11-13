@@ -77,43 +77,39 @@ void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, flo
    *    angleRad: the angle in radians relative to vertical (note: not the same as error)
    *    angleRadAccum: the angle integrated over time (note: not the same as error)
    */
-  //int factor = 50;
-  // 4 27
-  int Jp = 500;
-  int Jr = 5000;
-  int Kp = -6;
-  int Ki = -36;
-  float Kd = 0.1;
-  float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
-  float v = (vL + vR) / 2;
   
-  float Etheta = Kd*(dist) - angleRad;
-  //int Itheta = thetad - angleRadAccum;
-  //float radoffset = 2*0.0349066;
-  float Evl = ((Kp * (Etheta) + Ki * (Itheta) - vL));
-  float Evr = ((Kp * (Etheta) + Ki * (Itheta) - vR)); 
-  //int kp = 6 * factor;
-  //int ki = 36 * factor;
+  int Jp = 500; //coefficient for proportional motor control
+  int Jr = 5000; //coefficient for motor integral control
+  int Kp = -6; //coefficient  for proportional control
+  int Ki = -36; //coefficient for integral control
+  float Kd = 0.1; //coefficient for distance factor
+  float dist = -(totalDistanceLeft + totalDistanceRight) / 2; //total distance traveled
+  
+  float Etheta = Kd*(dist) - angleRad; //theta error + a distance factor
+  float Evl = ((Kp * (Etheta) + Ki * (Itheta) - vL)); //left wheel velocity error
+  float Evr = ((Kp * (Etheta) + Ki * (Itheta) - vR)); //right wheel velocity error
+ 
+  int rightPWM = Jp*Evr + Jr * Itheta; //PWM to be sent to right motor
 
-  //int pwm = kp*angleRad + ki*angleRadAccum;
-  int rightPWM = Jp*Evr + Jr * Itheta;
+  int max_speed = 300; //Max PWM to be sent to motor
 
-  int max_speed = 300;
-  if (rightPWM > 0)
-    rightPWM = min(rightPWM, max_speed);
+  //Keeps PWM under max PWM
+  if (rightPWM > 0) 
+    rightPWM = min(rightPWM, max_speed); 
   else
     rightPWM = max(rightPWM, -max_speed);
 
- int leftPWM = Jp*Evl + Jr * Itheta;
+  int leftPWM = Jp*Evl + Jr * Itheta; //PWM to be sent to left motor
 
+  //Keeps PWM under max PWM
   if (leftPWM > 0)
     leftPWM = min(leftPWM, max_speed);
   else
     leftPWM = max(leftPWM, -max_speed);
     
   
-  leftMotorPWM = leftPWM;//min(125, pwm);
-  rightMotorPWM = rightPWM;//min(125, pwm);
+  leftMotorPWM = leftPWM;
+  rightMotorPWM = rightPWM;
 }
 
 uint32_t prev_time;

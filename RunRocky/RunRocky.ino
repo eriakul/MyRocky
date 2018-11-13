@@ -75,36 +75,37 @@ void updatePWMs(float totalDistanceLeft, float totalDistanceRight, float vL, flo
    *    angleRad: the angle in radians relative to vertical (note: not the same as error)
    *    angleRadAccum: the angle integrated over time (note: not the same as error)
    */
-  //int factor = 50;
-  // 4 27
-  int Jp = 500;
-  int Jr = 5000;
-  int Kp = -5;
-  int Ki = -40;
-  float Kd = 0.5;
-  float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
-  float Etheta = .003 - angleRad;   //Kd*dist - angleRad;
-  float Evl = ((Kp * (Etheta) + Ki * (Itheta) - vL));
-  float Evr = ((Kp * (Etheta) + Ki * (Itheta) - vR)); 
+  int Jp = 500; //coefficient for proportional motor control
+  int Jr = 5000; //coefficient for motor integral control
+  int Kp = -6; //coefficient  for proportional control
+  int Ki = -36; //coefficient for integral control
+  float dist = -(totalDistanceLeft + totalDistanceRight) / 2; //total distance traveled
+  
+  float Etheta = .003 - angleRad;   //drift factor - angleRad; Makes Rocky move forward
+  float Evl = ((Kp * (Etheta) + Ki * (Itheta) - vL)); //left wheel velocity error
+  float Evr = ((Kp * (Etheta) + Ki * (Itheta) - vR)); //right wheel velocity error
+ 
+  int rightPWM = Jp*Evr + Jr * Itheta; //PWM to be sent to right motor
 
-  //int pwm = kp*angleRad + ki*angleRadAccum;
-  int rightPWM = Jp*Evr + Jr * Itheta;
+  int max_speed = 300; //Max PWM to be sent to motor
 
-  //if (rightPWM > 0) 
- //   rightPWM = max(rightPWM, 30);
- // else 
- //   rightPWM = min(rightPWM, -30);
+  //Keeps PWM under max PWM
+  if (rightPWM > 0) 
+    rightPWM = min(rightPWM, max_speed); 
+  else
+    rightPWM = max(rightPWM, -max_speed);
 
- int leftPWM = Jp*Evl + Jr * Itheta;
+  int leftPWM = Jp*Evl + Jr * Itheta; //PWM to be sent to left motor
 
- // if (leftPWM > 0)
-//    leftPWM = max(leftPWM, 30);
- // else
- //   leftPWM = min(leftPWM, -30);
+  //Keeps PWM under max PWM
+  if (leftPWM > 0)
+    leftPWM = min(leftPWM, max_speed);
+  else
+    leftPWM = max(leftPWM, -max_speed);
     
   
-  leftMotorPWM = leftPWM;//min(125, pwm);
-  rightMotorPWM = rightPWM;//min(125, pwm);
+  leftMotorPWM = leftPWM;
+  rightMotorPWM = rightPWM;
 }
 
 uint32_t prev_time;
@@ -261,8 +262,8 @@ void loop()
     angle_rad_accum += (angle_rad)*delta_t;
     float Kd = 0.5;
     float dist = -(totalDistanceLeft + totalDistanceRight) / 2;
-    float Etheta = .003 - angle_rad;
-    Itheta += Etheta*delta_t;
+    float Etheta = .003 - angle_rad; //drift constant - angle error;
+    Itheta += Etheta*delta_t; //integrated theta error;
     updatePWMs(totalDistanceLeft, totalDistanceRight, vL, vR, angle_rad, angle_rad_accum, Itheta);
 
     // if the robot is more than 45 degrees, shut down the motor
